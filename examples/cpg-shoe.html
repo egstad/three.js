@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>three.js webgl - tone mapping</title>
+		<meta charset="utf-8" />
+		<meta
+			name="viewport"
+			content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0"
+		/>
+		<link type="text/css" rel="stylesheet" href="main.css" />
+	</head>
+
+	<body>
+		<!-- Import maps polyfill -->
+		<!-- Remove this when import maps will be widely supported -->
+		<script
+			async
+			src="https://unpkg.com/es-module-shims@1.3.6/dist/es-module-shims.js"
+		></script>
+
+		<script type="importmap">
+			{
+				"imports": {
+					"three": "../build/three.module.js"
+				}
+			}
+		</script>
+
+		<script type="module">
+			import * as THREE from "three";
+
+			import { OrbitControls } from "./jsm/controls/OrbitControls.js";
+			import { GLTFLoader } from "./jsm/loaders/GLTFLoader.js";
+			import { RGBELoader } from "./jsm/loaders/RGBELoader.js";
+
+			let mesh, renderer, scene, camera, controls;
+
+			init().catch(function (err) {
+				console.error(err);
+			});
+
+			animate();
+
+			async function init() {
+				renderer = new THREE.WebGLRenderer({ antialias: true });
+				renderer.setPixelRatio(window.devicePixelRatio);
+				renderer.setSize(window.innerWidth, window.innerHeight);
+				document.body.appendChild(renderer.domElement);
+
+				renderer.toneMapping = THREE.ACESFilmicToneMapping;
+				renderer.toneMappingExposure = 1.6;
+
+				renderer.outputEncoding = THREE.sRGBEncoding;
+
+				scene = new THREE.Scene();
+
+				camera = new THREE.PerspectiveCamera(
+					15,
+					window.innerWidth / window.innerHeight,
+					0.1,
+					50
+				);
+				camera.position.set(-10, -20, 10);
+
+				controls = new OrbitControls(camera, renderer.domElement);
+				controls.addEventListener("change", render); // use if there is no animation loop
+				controls.enableZoom = false;
+				controls.enablePan = false;
+				controls.target.set(0, 0, -0.2);
+				controls.update();
+
+				const rgbeLoader = new RGBELoader().setPath("textures/hdri/");
+
+				const gltfLoader = new GLTFLoader().setPath(
+					"models/gltf/NewBalanceShoe/"
+				);
+
+				const [texture, gltf] = await Promise.all([
+					rgbeLoader.loadAsync("lawn.hdr"),
+					gltfLoader.loadAsync("scene.gltf"),
+				]);
+
+				// environment
+
+				texture.mapping = THREE.EquirectangularReflectionMapping;
+
+				scene.background = texture;
+				scene.environment = texture;
+
+				// model
+
+				console.log(gltf);
+
+				gltf.scene.scale.set(0.75, 0.75, 0.75);
+				gltf.scene.position.set(0, 0.5, 0);
+				mesh = gltf.scene.getObjectByName("Sketchfab_Scene");
+				scene.add(mesh);
+
+				render();
+
+				window.addEventListener("resize", onWindowResize);
+			}
+
+			function onWindowResize() {
+				camera.aspect = window.innerWidth / window.innerHeight;
+
+				camera.updateProjectionMatrix();
+
+				renderer.setSize(window.innerWidth, window.innerHeight);
+
+				render();
+			}
+
+			function render() {
+				renderer.render(scene, camera);
+			}
+
+			function animate() {
+				requestAnimationFrame(animate);
+				if (!mesh) return;
+				mesh.rotation.y += 0.003;
+				mesh.rotation.z += 0.003;
+				mesh.rotation.x += 0.003;
+				render();
+			}
+		</script>
+	</body>
+</html>
